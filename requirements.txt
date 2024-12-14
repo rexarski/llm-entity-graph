@@ -1,0 +1,7 @@
+langchain_community
+openai
+sentence_transformers
+faiss-cpu
+pyvis
+scikit-learn
+windows-curses
