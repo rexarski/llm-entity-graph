@@ -1,7 +1,8 @@
 import os
 from typing import List, Tuple, Optional, Dict, Any
 import networkx as nx
-from openai import OpenAI
+# from openai import OpenAI
+from ollama import Client
 
 from graph_storage import GraphStorage
 from graph_entity import GraphEntity
@@ -21,7 +22,10 @@ class KnowledgeGraph:
             base_path: 知识图谱数据的基础路径
         """
         # 初始化LLM客户端
-        self.llm_client = OpenAI(api_key=API_KEY, base_url=API_BASE_URL)
+        # self.llm_client = OpenAI(api_key=API_KEY, base_url=API_BASE_URL)
+        self.llm_client = Client(
+            host='http://localhost:11434',
+        )
 
         # 初始化各个组件
         self.storage = GraphStorage(base_path)
@@ -32,10 +36,10 @@ class KnowledgeGraph:
         # 加载现有图谱
         if os.path.exists(base_path):
             self._load_existing_graph()
-            print(f"成功加载已存在的图谱：{base_path}")
+            print(f"Existing knowledge graph loaded: {base_path}")
         else:
             self._initialize_new_graph()
-            print(f"创建新的图谱：{base_path}")
+            print(f"Creaing new knowledge graph: {base_path}")
 
     def _load_existing_graph(self) -> None:
         """加载现有图谱数据"""

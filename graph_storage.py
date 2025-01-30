@@ -73,7 +73,7 @@ class GraphStorage:
         """保存图谱数据"""
         # 保存图结构和别名信息
         graph_data = {
-            "graph": nx.node_link_data(self.graph),
+            "graph": nx.node_link_data(self.graph, edges="links"),
             "aliases": {k: list(v) for k, v in self.entity_aliases.items()},
             "alias_to_main_id": self.alias_to_main_id,
         }
@@ -95,12 +95,12 @@ class GraphStorage:
                 content = self.load_entity(entity_id)
                 if content:
                     self._create_entity_vector_store(entity_id, content)
-                    print(f"更新实体 '{entity_id}' 的向量库")
+                    print(f"Update the vector store of entity '{entity_id}'")
 
         # 更新全局向量库
         if os.path.exists(self.global_doc_path):
             self._create_global_vector_store()
-            print(f"更新全局向量库")
+            print(f"Update global vector store")
 
         # 清空变更追踪
         self.modified_entities.clear()
@@ -109,7 +109,7 @@ class GraphStorage:
         """加载图谱数据"""
         # 加载图结构和别名
         if os.path.exists(self.graph_file):
-            print(f"检测到已存在的知识图谱在 '{self.base_path}'，正在加载...")
+            print(f"Existing knowledge graph detected at '{self.base_path}', loading...")
             with open(self.graph_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
             self.graph = nx.node_link_graph(data["graph"], multigraph=True)
@@ -118,7 +118,7 @@ class GraphStorage:
 
             # 加载实体嵌入
             if os.path.exists(self.embeddings_file):
-                print("正在加载实体嵌入...")
+                print("Loading entity embedding...")
                 with open(self.embeddings_file, "r", encoding="utf-8") as f:
                     embeddings_data = json.load(f)
                 # 直接将列表转换为numpy数组，因为加载的数据已经是列表形式
@@ -126,7 +126,7 @@ class GraphStorage:
                     k: np.array(v) for k, v in embeddings_data.items()
                 }
             else:
-                print("未找到实体嵌入文件，正在重新生成...")
+                print("Didn't find entity embedding, now regenerating...")
                 self._regenerate_embeddings()
 
             # 加载全局文档内容
@@ -144,32 +144,32 @@ class GraphStorage:
         """尝试加载社区相关数据"""
         # 检查并加载社区JSON数据
         if os.path.exists(self.community_file):
-            print("检测到社区数据，正在加载...")
+            print("Community data detected, loading...")
             try:
                 with open(self.community_file, "r", encoding="utf-8") as f:
                     self.communities = json.load(f)
-                print(f"已加载 {len(self.communities)} 个社区的数据")
+                print(f"{len(self.communities)} community data have been loaded")
 
                 # 加载社区向量存储
                 store_path = os.path.join(self.vector_path, "community_summaries")
                 if os.path.exists(store_path):
-                    print("正在加载社区摘要向量存储...")
+                    print("Loading community summary vector store...")
                     self.community_vector_store = FAISS.load_local(
                         store_path,
                         EmbeddingModel.get_instance(),
                         allow_dangerous_deserialization=True,
                     )
-                    print("社区摘要向量存储加载完成")
+                    print("Community summary vector store successfully loaded")
                 else:
-                    print("正在为社区摘要创建向量存储...")
+                    print("Creating vector store for community summary...")
                     self._create_community_summary_store()
 
             except Exception as e:
-                print(f"加载社区数据时发生错误: {str(e)}")
+                print(f"[ERROR] Loading community data: {str(e)}")
                 self.communities = {}
                 self.community_vector_store = None
         else:
-            print("未检测到社区数据，跳过加载")
+            print("Didn't find community data, skip loading")
             self.communities = {}
             self.community_vector_store = None
 
@@ -295,12 +295,12 @@ class GraphStorage:
                     )
                     self.vector_stores[node] = vector_store
                 except Exception as e:
-                    print(f"加载实体'{node}'的向量库失败: {str(e)}")
+                    print(f"Failed to load the vector store of entity '{node}': {str(e)}")
                     content = self.load_entity(node)
                     if content:
                         self._create_entity_vector_store(node, content)
             else:
-                print(f"实体'{node}'的向量库不存在，正在生成...")
+                print(f"The vector store of entity '{node}' does not exist, now generating...")
                 content = self.load_entity(node)
                 if content:
                     self._create_entity_vector_store(node, content)
@@ -308,7 +308,7 @@ class GraphStorage:
     def _create_community_summary_store(self) -> None:
         """为社区摘要创建向量存储"""
         if not os.path.exists(self.community_summary_path):
-            print("创建失败，没有社区文档")
+            print("Creation failed, no community summary")
             return
 
         store_path = os.path.join(self.vector_path, "community_summaries")
@@ -332,7 +332,7 @@ class GraphStorage:
 
         # 保存向量存储
         self.community_vector_store.save_local(store_path)
-        print("社区摘要向量存储创建完成")
+        print("Community summary vector store creation complete")
 
     def _create_entity_vector_store(
         self, entity_id: str, content_units: List[Tuple[str, str]]
@@ -428,7 +428,7 @@ class GraphStorage:
             decoded_bytes = base64.urlsafe_b64decode(encoded_filename.encode("utf-8"))
             return decoded_bytes.decode("utf-8")
         except Exception as e:
-            print(f"解码文件名时发生错误: {str(e)}")
+            print(f"[ERROR] Decoding error: {str(e)}")
             return encoded_filename
 
     def cleanup(self) -> None:
@@ -452,7 +452,7 @@ class GraphStorage:
             self.communities.clear()
 
         except Exception as e:
-            print(f"清理资源时发生错误: {str(e)}")
+            print(f"[ERROR] Cleanup error: {str(e)}")
 
     def remove_entity(self, entity_id: str) -> None:
         """
@@ -495,10 +495,10 @@ class GraphStorage:
                         del self.alias_to_main_id[alias]
                 del self.entity_aliases[entity_id]
 
-            print(f"成功删除实体 '{entity_id}' 及其相关数据")
+            print(f"Successfully deleted entity '{entity_id}' and related data")
 
         except Exception as e:
-            print(f"删除实体 '{entity_id}' 时发生错误: {str(e)}")
+            print(f"[ERROR] Error while deleting entity '{entity_id}': {str(e)}")
 
     def __enter__(self):
         """上下文管理器入口"""

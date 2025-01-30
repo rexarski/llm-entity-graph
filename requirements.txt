@@ -4,4 +4,4 @@ sentence_transformers
 faiss-cpu
 pyvis
 scikit-learn
-windows-curses
+# windows-curses

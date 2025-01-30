@@ -19,11 +19,11 @@ class KnowledgeRetriever:
         self.initial_cache_rounds = 5  # 缓存初始轮数
 
         try:
-            print(f"\n[Info] 正在加载知识图谱...")
+            print(f"\n[Info] Loading knowledge graph...")
             self.kg = KnowledgeGraph(knowledge_base_path)
-            print(f"[Info] 知识图谱加载成功！")
+            print(f"[Info] Knowledge graph loaded！")
         except Exception as e:
-            print(f"加载知识图谱时出错: {str(e)}")
+            print(f"[ERROR] Knowledge graph loading error: {str(e)}")
             self.kg = None
 
     def _get_cached_results(self, results: List[Tuple[Any, float]]) -> List[str]:
@@ -90,11 +90,11 @@ class KnowledgeRetriever:
             if all(key in query_info for key in ["query", "entities"]):
                 return query_info
             else:
-                print("[Info] 缺少必要字段")
+                print("[Info] Missing required fields in query response")
                 return default_response
 
         except Exception as e:
-            print(f"[Info] 解析出错: {str(e)}")
+            print(f"[Info] Parsing error: {str(e)}")
             return default_response
 
     def fast_retrieval(self, query: str) -> Optional[str]:
@@ -108,7 +108,7 @@ class KnowledgeRetriever:
                 return "\n\n".join(selected_contents)
 
         except Exception as e:
-            print(f"快速检索时发生错误: {str(e)}")
+            print(f"[ERROR] Fast retrieval error: {str(e)}")
         return None
 
     def associate_retrieval(self, query: str, entities: List[str]) -> Optional[str]:
@@ -165,7 +165,7 @@ class KnowledgeRetriever:
                     for content in selected_contents:
                         if content not in retrieved_contents:
                             retrieved_contents.add(content)
-                            retrieval_results.append(f"[全局搜索]相关内容：\n{content}")
+                            retrieval_results.append(f"[Global search]Related content：\n{content}")
 
                 return "\n\n".join(retrieval_results) if retrieval_results else None
 

@@ -1,15 +1,14 @@
-我想要构建知识图谱，请从给定的文本中提取核心实体，遵循以下指南：
-- 只选择最核心、出现频率最高的2到4个实体
-- 请严格判断，如果找到的实体不能反映所有评论整体反映的主题，或者评论是明显无意义的重复评论，无需提取实体，entities请返回空列表
-- 将简写的实体名补充为完整形式
-- 提取的实体需要和话题或评论整体反映的主题紧密相关。请提取具体的、有实际意义的实体，避免空泛的概念，实体应该是独立的名词形式
+I want to build a knowledge graph. Please extract core entities from the given text following these guidelines:
+- Select only 2-4 most essential, highest-frequency core entities
+- Apply strict judgment: If identified entities don't reflect the overall theme of all reviews, or if comments are clearly meaningless duplicates, return an empty entities list
+- Expand abbreviated entity names to full forms
+- Entities must be closely related to the main topic/theme of the reviews. Extract concrete, meaningful entities - avoid vague concepts. Entities should be standalone noun forms
 
-输出格式：
-   以 JSON 格式输出结果，结构如下：
-   ```json
-   {
-     "entities": ["实体1", "实体2"...],
-   }
-   ```
+Output format:
+```json
+{
+  "entities": ["Entity1", "Entity2"...]
+}
+```
 
-请分析给定的文本，并直接输出json，无需额外的解释说明。
+Analyze the given text and output JSON directly without explanations.

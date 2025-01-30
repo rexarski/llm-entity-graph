@@ -1,8 +1,22 @@
-# 平台大战对话框架
+# README
 
-一个结合了知识图谱和RAG的多智能体对话框架，可以从不同社交平台的评论中提取并构建知识图谱数据库，让它们以各平台代表性的观点和表达方式，围绕一个话题展开辩论。
+Simplified and refactored the codebase of [LYiHub/platform-war-public](https://github.com/LYiHub/platform-war-public).
 
-## 文件结构
+## Changelog
+
+```fish
+uv venv --python 3.11.7
+source .venv/bin/activate.fish
+uv pip install torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 datasets ollama pydantic einops
+uv pip install -r requirements.txt # remove windows-curses
+```
+
+* Remove platform-debate-related codebase
+* Install Ollama
+* Update `model_kwargs={"device": "cpu"}` in `embedding_model.py`
+* Create `data` folder and run `demo_dataset.py` to generate the `results.json`
+
+<!-- ## Structure
 
 API key配置文件是`config.py`。该程序基于moonshot-v1模型实现，需要在配置文件中填入从kimi开放平台申请的API key以正常运行。如果需要更换其他模型服务，需要同时修改`API_BASE_URL`和程序中相应调用大模型的部分（模型名称、特殊参数等）
 
@@ -26,11 +40,13 @@ conda activate platform_war
 **启用gpu加速（可选）**
 
 安装电脑显卡版本匹配的CUDA和PyTorch, 例（具体版本请按电脑配置修改）：
+
 ```
 conda install pytorch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 pytorch-cuda=12.1 -c pytorch -c nvidia
 ```
 
 然后用以下命令安装FAISS的gpu版本
+
 ```
 conda install -c conda-forge faiss-gpu
 ```
@@ -40,11 +56,15 @@ conda install -c conda-forge faiss-gpu
 ```
 pip install -r requirements.txt
 ```
+
 如果前一步没有安装CUDA，需要将`embedding_model.py`中的
+
 ```
 model_kwargs={"device": "cuda"}
 ```
+
 修改为
+
 ```
 model_kwargs={"device": "cpu"}
 ```
@@ -104,11 +124,11 @@ model_kwargs={"device": "cpu"}
 
 百度网盘下载链接：
 
-https://pan.baidu.com/s/1Ki0Sym9dmM76e6ghR6P8jQ?pwd=j3ih 提取码: j3ih 
+<https://pan.baidu.com/s/1Ki0Sym9dmM76e6ghR6P8jQ?pwd=j3ih> 提取码: j3ih
 
 谷歌云盘下载链接：
 
-https://drive.google.com/drive/folders/1kaXPSTjVaI1LP9lPtu8XhCnqjgWVlajY?usp=sharing
+<https://drive.google.com/drive/folders/1kaXPSTjVaI1LP9lPtu8XhCnqjgWVlajY?usp=sharing>
 
 使用方法：
 
@@ -123,4 +143,6 @@ https://drive.google.com/drive/folders/1kaXPSTjVaI1LP9lPtu8XhCnqjgWVlajY?usp=sha
 
 ## 参考
 
-微软GraphRAG项目 https://github.com/microsoft/graphrag
+微软GraphRAG项目 <https://github.com/microsoft/graphrag>
+
+*** -->

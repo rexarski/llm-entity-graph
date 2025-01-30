@@ -142,7 +142,7 @@ class GraphSearch:
                     if edges_data:
                         for edge_data in edges_data.values():
                             relation_text = (
-                                f"{entity}与{successor}的关系是{edge_data['type']}"
+                                f"{entity} and {successor}'s relationship is {edge_data['type']}"
                             )
                             relation_embedding = (
                                 EmbeddingModel.get_instance().embed_query(relation_text)
@@ -161,7 +161,7 @@ class GraphSearch:
                     if edges_data:
                         for edge_data in edges_data.values():
                             relation_text = (
-                                f"{predecessor}与{entity}的关系是{edge_data['type']}"
+                                f"{predecessor} and {entity}'s relationship is '{edge_data['type']}"
                             )
                             relation_embedding = (
                                 EmbeddingModel.get_instance().embed_query(relation_text)
@@ -218,7 +218,7 @@ class GraphSearch:
             return sorted(results, key=lambda x: x[3], reverse=True)[:k]
 
         except Exception as e:
-            print(f"搜索相似关系时发生错误: {str(e)}")
+            print(f"[ERROR] Error while searching for similar relationship: {str(e)}")
             return []
 
     def search_all_paths(
@@ -378,5 +378,5 @@ class GraphSearch:
             return communities_data
 
         except Exception as e:
-            print(f"搜索社区时发生错误: {str(e)}")
+            print(f"[ERROR] Error while searching communities: {str(e)}")
             return []

@@ -2,53 +2,68 @@ import os
 import sys
 import json
 import re
-from openai import OpenAI
+# from openai import OpenAI
+from ollama import Client
+from pydantic import BaseModel
+from tqdm import tqdm
 from knowledgeGraph import KnowledgeGraph
 from config import *
 
-client = OpenAI(api_key=API_KEY, base_url=API_BASE_URL)
+# client = OpenAI(api_key=API_KEY, base_url=API_BASE_URL)
+client = Client(
+    host='http://localhost:11434',
+    # headers={'x-some-header': 'some-value'}
+)
 
+class Entities(BaseModel):
+    entities: list[str]
+class Relation(BaseModel):
+    source: str
+    target: str
+    relation: str
+class Relations(BaseModel):
+    relations: list[Relation]
 
 class KnowledgeGraphExtractor:
     def __init__(self):
-        # 初始化知识图谱
+        # Initialize the KnowledgeGraph class
         self.kg = KnowledgeGraph("./knowledge_base")
 
-        # 读取提示词模板
+        # Read the prompt templates
         self.entity_prompt = self.read_prompt("prompt/entity_extraction.txt")
         self.relation_prompt = self.read_prompt("prompt/relationship_extraction.txt")
 
-        # 已处理文件记录
+        # Load the progress file
         self.progress_file = "data/processed_files.txt"
         self.processed_files = self.load_progress()
 
     def load_progress(self):
-        """加载已处理的文件列表"""
+        """List of processed files"""
         if os.path.exists(self.progress_file):
             with open(self.progress_file, "r", encoding="utf-8") as f:
                 return set(line.strip() for line in f)
         return set()
 
     def save_progress(self, item_id):
-        """记录已处理的文件"""
+        """Save the processed file"""
         os.makedirs(os.path.dirname(self.progress_file), exist_ok=True)
         with open(self.progress_file, "a", encoding="utf-8") as f:
             f.write(f"{item_id}\n")
 
     @staticmethod
     def read_prompt(file_path):
-        """读取提示词模板"""
+        """Read the prompt file"""
         with open(file_path, "r", encoding="utf-8") as file:
             return file.read()
 
     @staticmethod
     def read_json_file(file_path):
-        """读取JSON文件"""
+        """Read the JSON file"""
         with open(file_path, "r", encoding="utf-8") as file:
             return json.load(file)
 
     def parse_ai_response(self, response):
-        """解析AI响应"""
+        """Parse the AI response"""
         json_match = re.search(r"```json\s*([\s\S]*?)\s*```", response)
         if json_match:
             json_str = json_match.group(1)
@@ -58,78 +73,92 @@ class KnowledgeGraphExtractor:
         try:
             return json.loads(json_str)
         except json.JSONDecodeError:
-            print(f"解析JSON失败: {json_str}")
+            print(f"Failed JSON parsing: {json_str}")
             return {}
 
-    def chat_with_LLM(self, messages):
-        """与LLM交互"""
+    def chat_with_LLM(self, messages, output_format):
+        """Chat with the LLM model"""
         try:
-            response = client.chat.completions.create(
-                model="moonshot-v1-32k",
+            # response = client.chat.completions.create(
+            #     model="moonshot-v1-32k",
+            #     messages=messages,
+            #     temperature=0.5,
+            #     response_format={"type": "json_object"},
+            #     stream=True,
+            # )
+
+            # structured output! https://ollama.com/blog/structured-outputs
+            response = client.chat(
+                model=LLM_MODEL_NAME,
                 messages=messages,
-                temperature=0.5,
-                response_format={"type": "json_object"},
+                # temperature=0.5,
+                # response_format={"type": "json_object"},
+                # format="json",
+                format=output_format,
                 stream=True,
             )
 
             full_response = ""
             for chunk in response:
-                if chunk.choices[0].delta.content is not None:
-                    content = chunk.choices[0].delta.content
+                # if chunk.choices[0].delta.content is not None:
+                if chunk.message.content is not None:
+                    # content = chunk.choices[0].delta.content
+                    content = chunk.message.content
                     print(content, end="", flush=True)
                     full_response += content
             print()
             return full_response
 
         except Exception as e:
-            print(f"LLM调用出错: {str(e)}")
+            print(f"Failed calling LLM: {str(e)}")
             raise
 
     def extract_entities(self, text):
-        """提取实体"""
+        """Extract entities"""
         messages = [
             {"role": "system", "content": self.entity_prompt},
             {
                 "role": "user",
-                "content": f"请从以下文本中提取与话题相关的核心实体：\n\n{text}",
+                "content": f"Please extract core entities related to the topic from the following text：\n\n{text}",
             },
         ]
-        response = self.chat_with_LLM(messages)
+        response = self.chat_with_LLM(messages, output_format=Entities.model_json_schema())
         return self.parse_ai_response(response)
 
     def extract_relations(self, text, entities):
-        """提取关系"""
+        """Extract relations"""
         entities_str = ", ".join(entities)
         messages = [
             {"role": "system", "content": self.relation_prompt},
             {
                 "role": "user",
-                "content": f"已知实体列表：{entities_str}\n\n请从以下文本中提取这些实体之间的关系：\n\n{text}",
+                "content": f"List of known entities：{entities_str}\n\nPlease extract the relationships between these entities from the following text:\n\n{text}",
             },
         ]
-        response = self.chat_with_LLM(messages)
+
+        response = self.chat_with_LLM(messages, output_format=Relations.model_json_schema())
         return self.parse_ai_response(response)
 
     def process_item(self, item_id, item_data):
-        """处理单个数据项"""
+        """Process the item data"""
         try:
             title = item_data.get("title", "")
             clusters = item_data.get("clusters", [])
 
-            print(f"正在处理数据 {item_id}: {title}")
-            print(f"该数据包含 {len(clusters)} 个评论簇")
+            print(f"[INFO] Processing data {item_id}: {title}")
+            print(f"[INFO] Data {item_id} contains {len(clusters)} text clusters")
 
             entity_contents = {}
             all_relations = []
 
             for i, cluster in enumerate(clusters):
-                print(f"处理第 {i+1}/{len(clusters)} 个评论簇")
+                print(f"[INFO] Processing {i+1}/{len(clusters)} text clusters")
 
                 comments = [
                     comment.replace("\n", " ").strip()
                     for comment in cluster.get("comments", [])
                 ]
-                context = f"话题：{title}\n所有评论：\n" + "\n".join(comments)
+                context = f"Topic: {title}\nAll comments:\n" + "\n".join(comments)
 
                 entities_result = self.extract_entities(context)
                 entities = entities_result.get("entities", [])
@@ -154,11 +183,11 @@ class KnowledgeGraphExtractor:
                 all_relations.extend(relations)
 
             if not entity_contents or not all_relations:
-                print(f"数据 {item_id} 没有提取到有效的实体和关系")
+                print(f"[WARNING] Data {item_id} has no effective entity or relationships")
                 return False
 
             print(
-                f"向知识图谱添加 {len(entity_contents)} 个实体和 {len(all_relations)} 个关系"
+                f"[INFO] Adding {len(entity_contents)} entities and {len(all_relations)} relationships to the knowledge graph"
             )
 
             for entity, content_units in entity_contents.items():
@@ -172,11 +201,11 @@ class KnowledgeGraphExtractor:
             return True
 
         except Exception as e:
-            print(f"处理数据时出错: {str(e)}")
+            print(f"[ERROR] Item processing error: {str(e)}")
             return False
 
     def process_data(self, input_file="data/results.json"):
-        """处理数据文件"""
+        """Process the data"""
         try:
             data = self.read_json_file(input_file)
 
@@ -187,39 +216,39 @@ class KnowledgeGraphExtractor:
             ]
 
             if not unprocessed_items:
-                print("没有新的数据需要处理")
+                print("[INFO] No more data to process")
                 return self.kg
 
-            print(f"将处理 {len(unprocessed_items)} 个数据项")
+            print(f"[INFO] Will process {len(unprocessed_items)} items")
 
-            for item_id, item_data in unprocessed_items:
+            for item_id, item_data in tqdm(unprocessed_items):
                 if self.process_item(item_id, item_data):
                     self.save_progress(item_id)
                     self.processed_files.add(item_id)
                     self.kg.save()
-                    print(f"数据 {item_id} 处理完成并保存")
+                    print(f"[INFO] Item {item_id} has been processed and saved")
 
             self.kg.merge_similar_entities()
             self.kg.remove_duplicates()
             self.kg.visualize()
 
-            print("\n数据处理完成")
+            print("\n[INFO] Data processing completed")
             return self.kg
 
         except Exception as e:
-            print(f"处理文件出错: {str(e)}")
+            print(f"[ERROR] Data processing error: {str(e)}")
             raise
 
 
 def main():
     try:
-        print("\n开始处理数据")
+        print("\n[INFO] Starting data processing")
         extractor = KnowledgeGraphExtractor()
         kg = extractor.process_data()
-        print("知识图谱创建完成并可视化")
+        print("[INFO] Knowledge graph has been completed and the corresponding visualization has been saved")
 
     except Exception as e:
-        print(f"程序执行出错: {str(e)}")
+        print(f"[ERROR] Error when executing: {str(e)}")
         sys.exit(1)
 
 

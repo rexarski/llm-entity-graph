@@ -1,11 +1,13 @@
 from typing import List, Tuple, Dict, Optional, Any
-from openai import OpenAI
+# from openai import OpenAI
+from ollama import Client
 import networkx as nx
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 from graph_storage import GraphStorage
 from embedding_model import EmbeddingModel
+from config import *
 
 ENTITY_MERGE_PROMPT = "prompt/entity_merge.txt"
 RELATIONSHIP_MERGE_PROMPT = "prompt/relationship_merge.txt"
@@ -15,7 +17,7 @@ COMMUNITY_SUMMARY_PROMPT = "prompt/community_summary.txt"
 class GraphEntity:
     """实体管理器，处理所有与实体和关系相关的操作"""
 
-    def __init__(self, storage: GraphStorage, llm_client: OpenAI):
+    def __init__(self, storage: GraphStorage, llm_client: Client):
         """
         初始化实体管理器
 
@@ -40,7 +42,7 @@ class GraphEntity:
         # 检查是否已存在
         main_id = self._get_main_id(entity_id)
         if main_id:
-            print(f"发现已存在实体 '{entity_id}'，正在与主实体 '{main_id}' 合并...")
+            print(f"Found existing entity '{entity_id}'，now merging with main entity '{main_id}' ...")
             self._merge_entity_content(main_id, content_units)
             return main_id
 
@@ -52,19 +54,19 @@ class GraphEntity:
             similarity = cosine_similarity([new_embedding], [existing_embedding])[0][0]
             if similarity > 0.85:
                 print(
-                    f"发现高相似度实体：'{entity_id}' 与 '{existing_id}' 的相似度为 {similarity:.3f}"
+                    f"Found high similarity entities：'{entity_id}' and '{existing_id}' have similarity of {similarity:.3f}"
                 )
                 should_merge = self._llm_merge_judgment(entity_id, existing_id)
                 if should_merge:
                     print(
-                        f"大模型判定可以合并，正在将 '{entity_id}' 合并到 '{existing_id}'..."
+                        f"LLM decides that it is okay to merge, merging entity '{entity_id}' to entity '{existing_id}'..."
                     )
                     self._merge_entity_content(existing_id, content_units)
                     self._add_alias(existing_id, entity_id)
                     return existing_id
 
         # 添加为新实体
-        print(f"添加新实体：'{entity_id}'")
+        print(f"Creating new entity：'{entity_id}'")
         self.storage.graph.add_node(entity_id)
         self.storage.entity_embeddings[entity_id] = new_embedding
         self.storage.alias_to_main_id[entity_id] = entity_id
@@ -91,9 +93,9 @@ class GraphEntity:
 
         if not (main_id1 and main_id2):
             if not main_id1:
-                print(f"实体 '{entity1_id}' 不存在")
+                print(f"Entity '{entity1_id}' does not exist")
             if not main_id2:
-                print(f"实体 '{entity2_id}' 不存在")
+                print(f"Entity '{entity2_id}' does not exist")
             return
 
         # 获取这对实体间的现有同向关系
@@ -106,7 +108,7 @@ class GraphEntity:
         # 如果没有现有关系，直接添加
         if not existing_relationships:
             self.storage.graph.add_edge(main_id1, main_id2, type=relationship_type)
-            print(f"添加新关系: {main_id1} -{relationship_type}-> {main_id2}")
+            print(f"Adding new relationship: {main_id1} -{relationship_type}-> {main_id2}")
             return
 
         # 获取所有关系的嵌入向量（包括新关系）
@@ -128,12 +130,12 @@ class GraphEntity:
                 similarities, key=lambda x: x[0]
             )
 
-            print(f"发现最相似关系：'{relationship_type}' 与 '{most_similar_rel}'")
-            print(f"相似度为：{max_similarity:.3f}")
+            print(f"Most similar relaionship found: '{relationship_type}' and '{most_similar_rel}'")
+            print(f"Similarity score is {max_similarity:.3f}")
 
             # 如果相似度超过0.95，保留原有关系
             if max_similarity > 0.95:
-                print(f"相似度超过0.95，保留原有关系：'{most_similar_rel}'")
+                print(f"Similarity > 0.95, keeping the original relationship：'{most_similar_rel}'")
                 return
 
             # 如果相似度在0.85-0.95之间，进行合并
@@ -141,7 +143,7 @@ class GraphEntity:
                 merged_relation = self._llm_merge_relationships(
                     main_id1, main_id2, relationship_type, most_similar_rel
                 )
-                print(f"合并关系为：'{merged_relation}'")
+                print(f"Merging relationship: '{merged_relation}'")
 
                 # 更新关系
                 self.storage.graph.remove_edge(main_id1, main_id2, edge_key)
@@ -150,7 +152,7 @@ class GraphEntity:
 
         # 如果没有相似关系或相似度较低，添加新关系
         self.storage.graph.add_edge(main_id1, main_id2, type=relationship_type)
-        print(f"添加新关系: {main_id1} -{relationship_type}-> {main_id2}")
+        print(f"Adding new relationship: {main_id1} -{relationship_type}-> {main_id2}")
 
     def get_entity_info(self, entity_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -252,7 +254,7 @@ class GraphEntity:
 
     def merge_similar_entities(self) -> None:
         """自动检查并合并相似实体"""
-        print("\n开始检查和合并相似实体...")
+        print("\nStart checking and merging similar entities...")
 
         # 获取所有实体对的相似度
         entity_pairs = []
@@ -274,7 +276,7 @@ class GraphEntity:
         merged_entities = set()
         for entity1, entity2, similarity in entity_pairs:
             if entity1 not in merged_entities and entity2 not in merged_entities:
-                print(f"\n合并实体：{entity1} 和 {entity2}（相似度：{similarity:.3f}）")
+                print(f"\nMerging entities {entity1} and {entity2} (Similarity: {similarity:.3f})")
                 merged_id = self.merge_entities(entity1, entity2)
                 merged_entities.add(entity2 if merged_id == entity1 else entity1)
 
@@ -368,14 +370,17 @@ class GraphEntity:
 
             messages = [{"role": "user", "content": prompt}]
 
-            response = self.llm_client.chat.completions.create(
-                model="moonshot-v1-8k", messages=messages, temperature=0.5
-            )
+            # response = self.llm_client.chat.completions.create(
+            #     model="moonshot-v1-8k", messages=messages, temperature=0.5
+            # )
 
-            return response.choices[0].message.content.strip()
+            response = self.llm_client.chat(model=LLM_MODEL_NAME, messages=messages)
+
+            # return response.choices[0].message.content.strip()
+            return response.message.content.strip()
 
         except Exception as e:
-            print(f"LLM合并关系时发生错误: {str(e)}")
+            print(f"LLm failed to merge relationships: {str(e)}")
             return rel1  # 出错时保留第一个关系
 
     def _llm_merge_judgment(self, entity1: str, entity2: str) -> bool:
@@ -387,11 +392,13 @@ class GraphEntity:
             prompt = template.format(entity1=entity1, entity2=entity2)
             messages = [{"role": "user", "content": prompt}]
 
-            response = self.llm_client.chat.completions.create(
-                model="moonshot-v1-8k", messages=messages, temperature=0.5
-            )
+            # response = self.llm_client.chat.completions.create(
+            #     model="moonshot-v1-8k", messages=messages, temperature=0.5
+            # )
+            response = self.llm_client.chat(model=LLM_MODEL_NAME, messages=messages)
 
-            result = response.choices[0].message.content.strip().lower()
+            # result = response.choices[0].message.content.strip().lower()
+            result = response.message.content.strip().lower()
             return result == "yes"
 
         except Exception as e:
@@ -500,26 +507,26 @@ class GraphEntity:
                     print(f"关系已存在: {source_main} -{data['type']}-> {target_main}")
 
         # 3. 重建向量库
-        print("\n更新向量库...")
+        print("\nUpdateing vector store...")
         # 更新实体向量库
         for node in self.storage.graph.nodes():
             content = self.storage.load_entity(node)
             if content:
                 self.storage._create_entity_vector_store(node, content)
-                print(f"已更新实体 '{node}' 的向量库")
+                print(f"Update on entity '{node}' vector store completed")
 
         # 4. 保存更新后的图谱
         self.storage.save()
-        print("\n图谱合并完成！")
+        print("\nKnowledge graphs merged!")
 
         # 5. 打印合并统计信息
-        print("\n合并统计:")
-        print(f"- 总节点数: {len(self.storage.graph.nodes())}")
-        print(f"- 总关系数: {len(self.storage.graph.edges())}")
+        print("\nSummary stats:")
+        print(f"- Total vertices: {len(self.storage.graph.nodes())}")
+        print(f"- Total relationships: {len(self.storage.graph.edges())}")
         print(
-            f"- 总别名数: {sum(len(aliases) for aliases in self.storage.entity_aliases.values())}"
+            f"- Total aliases: {sum(len(aliases) for aliases in self.storage.entity_aliases.values())}"
         )
-        print(f"- 向量库数量: {len(self.storage.vector_stores)}")
+        print(f"- Total vector stores: {len(self.storage.vector_stores)}")
 
     def detect_communities(
         self, resolution: float = 1.2, min_community_size: int = 4
@@ -537,13 +544,13 @@ class GraphEntity:
         # 获取图的副本并移除自环
         G = self.storage.graph.copy()
         G.remove_edges_from(nx.selfloop_edges(G))
-        print("开始社区检测：图的节点数:", len(G.nodes), "图的边数:", len(G.edges))
+        print("Community inspection initiated：number of vertices:", len(G.nodes), "number of edges:", len(G.edges))
 
         # 使用Louvain方法检测社区
         raw_communities = nx.community.louvain_communities(
             G, resolution=resolution, seed=42
         )
-        print("检测到的社区数:", len(raw_communities))
+        print("The number of communities detected:", len(raw_communities))
 
         # 分析每个社区
         communities_data = {}
@@ -721,4 +728,4 @@ class GraphEntity:
             return response.choices[0].message.content.strip().replace("\n", " ")
 
         except Exception as e:
-            print(f"生成社区摘要时发生错误: {str(e)}")
+            print(f"[ERROR] Error while generating community summary: {str(e)}")
