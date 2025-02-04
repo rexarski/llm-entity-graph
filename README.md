@@ -2,6 +2,8 @@
 
 Simplified and refactored the codebase of [LYiHub/platform-war-public](https://github.com/LYiHub/platform-war-public).
 
+Note: It seems that the original project used the words "relationship" and "relation" interchangeably.
+
 ## Changelog
 
 ```fish

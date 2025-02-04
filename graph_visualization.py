@@ -7,7 +7,7 @@ from graph_storage import GraphStorage
 
 @dataclass
 class VisualizationConfig:
-    """可视化配置"""
+    """Visualization configuration"""
 
     height: str = "100vh"
     width: str = "100%"
@@ -22,28 +22,28 @@ class VisualizationConfig:
 
 
 class GraphVisualization:
-    """图谱可视化管理器"""
+    """GraphVisualization manager"""
 
     def __init__(self, storage: GraphStorage):
-        """初始化"""
+        """Initialize the visualization manager"""
         self.storage: GraphStorage = storage
         self.config = VisualizationConfig()
         self.base_path = storage.base_path
 
     def visualize(self) -> None:
-        """基础图谱可视化"""
+        """Base visualization"""
         try:
             net = self._create_network()
             self._add_base_nodes_and_edges(net)
             self._save_visualization(net, "graph.html")
         except Exception as e:
-            print(f"基础可视化失败: {str(e)}")
+            print(f"[ERROR] Failed to create the base visualization: {str(e)}")
 
     def visualize_communities(self) -> None:
-        """社区视图可视化"""
+        """Visualize the communities"""
         try:
             if not hasattr(self.storage, "communities") or not self.storage.communities:
-                print("未检测到社区数据")
+                print("Community data not found.")
                 return
 
             net = self._create_network()
@@ -52,10 +52,10 @@ class GraphVisualization:
             self._add_community_nodes_and_edges(net, node_info)
             self._save_visualization(net, "communities.html")
         except Exception as e:
-            print(f"社区可视化失败: {str(e)}")
+            print(f"[ERROR] Failed to create the community visualization: {str(e)}")
 
     def _create_network(self) -> Network:
-        """创建网络实例并设置物理参数"""
+        """Create the network instance and set up the physics parameters"""
         net = Network(
             height=self.config.height,
             width=self.config.width,
@@ -64,7 +64,7 @@ class GraphVisualization:
             directed=True,
         )
 
-        # 添加完整的物理和交互配置
+        # Add complete physics and interaction configuration
         net.set_options(
             """{
             "physics": {
@@ -158,7 +158,7 @@ class GraphVisualization:
         return net
 
     def _calculate_node_weights(self) -> Dict[str, int]:
-        """计算节点权重（出入度之和）"""
+        """Calculate node weights (sum of in and out degrees)"""
         weights = {}
         for node in self.storage.graph.nodes():
             out_degree = len(list(self.storage.graph.successors(node)))
@@ -167,33 +167,33 @@ class GraphVisualization:
         return weights
 
     def _add_base_nodes_and_edges(self, net: Network) -> None:
-        """添加基础节点、别名节点和边"""
+        """Add base nodes, alias nodes, and edges"""
         try:
-            # 计算节点权重并归一化
+            # Calculate node weights and normalize
             weights = self._calculate_node_weights()
             max_weight = max(weights.values()) if weights else 1
             size_range = self.config.max_node_size - self.config.min_node_size
 
-            # 添加主实体节点
+            # Add main entity nodes
             for node in self.storage.graph.nodes():
                 weight = weights.get(node, 0)
                 size = self.config.min_node_size + (weight / max_weight) * size_range
                 net.add_node(
                     str(node),
                     label=str(node),
-                    title=f"实体: {node}\n关系数: {weight}",
+                    title=f"Entity: {node}\nNumber of relationships: {weight}",
                     color=self.config.node_color,
                     size=size,
                 )
 
-            # 添加别名节点和关系
+            # Add alias nodes and relationships
             for main_id, aliases in self.storage.entity_aliases.items():
                 real_aliases = [alias for alias in aliases if alias != main_id]
                 for alias in real_aliases:
                     net.add_node(
                         str(alias),
                         label=str(alias),
-                        title=f"别名: {alias}\n主实体: {main_id}",
+                        title=f"Alias: {alias}\nMain entity: {main_id}",
                         color=self.config.alias_color,
                         size=self.config.min_node_size * 0.8,
                     )
@@ -202,34 +202,34 @@ class GraphVisualization:
                         str(main_id),
                         color=self.config.edge_color,
                         dashes=True,
-                        title="别名关系",
+                        title="Alias",
                     )
 
-            # 添加关系边
+            # Add relationship edges
             for source, target, data in self.storage.graph.edges(data=True):
                 if source != target:
                     net.add_edge(
                         str(source),
                         str(target),
-                        title=str(data.get("type", "关系")),
+                        title=str(data.get("type", "relationship")),
                         color=self.config.edge_color,
                     )
         except Exception as e:
-            print(f"添加节点和边时出错: {str(e)}")
+            print(f"[ERROR] Failed to add nodes and edges: {str(e)}")
             raise
 
     def _generate_colors(self, n: int) -> List[str]:
-        """生成社区颜色"""
+        """Generate community colors"""
         colors = []
         for i in range(n):
             hue = i * (360 / n)
-            s, l = 70, 45  # 饱和度和亮度
+            s, l = 70, 45  # saturation and lightness
             r, g, b = self._hsl_to_rgb(hue / 360, s / 100, l / 100)
             colors.append(f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}")
         return colors
 
     def _hsl_to_rgb(self, h: float, s: float, l: float) -> tuple:
-        """HSL颜色转RGB"""
+        """HSL color to RGB"""
 
         def hue_to_rgb(p: float, q: float, t: float) -> float:
             if t < 0:
@@ -257,7 +257,7 @@ class GraphVisualization:
         )
 
     def _create_community_mapping(self, colors: List[str]) -> Dict:
-        """创建节点到社区的映射"""
+        """Create a mapping from nodes to communities"""
         mapping = {}
         try:
             weights = self._calculate_node_weights()
@@ -279,13 +279,13 @@ class GraphVisualization:
                         "size": size,
                     }
         except Exception as e:
-            print(f"创建社区映射时出错: {str(e)}")
+            print(f"[ERROR] Failed to create a community mapping: {str(e)}")
         return mapping
 
     def _add_community_nodes_and_edges(self, net: Network, node_info: Dict) -> None:
-        """添加社区节点和边"""
+        """Add community nodes and edges"""
         try:
-            # 添加节点
+            # Add nodes
             for node in self.storage.graph.nodes():
                 info = node_info.get(
                     str(node), {"color": "#d3d3d3", "size": self.config.min_node_size}
@@ -293,36 +293,36 @@ class GraphVisualization:
                 net.add_node(
                     str(node),
                     label=str(node),
-                    title=f"实体: {node}\n社区: {info.get('community', '未分类')}",
+                    title=f"Entity: {node}\nCommunity: {info.get('community', 'Uncategorized')}",
                     color=info["color"],
                     size=info["size"],
                 )
 
-            # 添加边
+            # Add edges
             for source, target, data in self.storage.graph.edges(data=True):
                 if source != target:
                     source, target = str(source), str(target)
                     if source in node_info and target in node_info:
-                        # 同一社区的边使用社区颜色
+                        # All edges within the same community use the community color
                         if node_info[source].get("community") == node_info[target].get(
                             "community"
                         ):
                             color = node_info[source]["color"]
                         else:
-                            color = "#999999"  # 跨社区边使用灰色
+                            color = "#999999"  # Use gray for inter-community edges
                     else:
                         color = "#999999"
                     net.add_edge(source, target, color=color)
         except Exception as e:
-            print(f"添加社区节点和边时出错: {str(e)}")
+            print(f"[ERROR] Failed to create community edges and edges: {str(e)}")
             raise
 
     def _save_visualization(self, net: Network, filename: str) -> None:
-        """保存可视化结果"""
+        """Save visualization to an HTML file"""
         try:
             path = os.path.join(self.base_path, filename)
             net.save_graph(path)
-            print(f"可视化已保存至: {path}")
+            print(f"Visualization results have been saved to: {path}")
         except Exception as e:
-            print(f"保存可视化时发生错误: {str(e)}")
+            print(f"[ERROR] Failed to save visualization: {str(e)}")
             raise

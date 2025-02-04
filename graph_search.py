@@ -10,15 +10,15 @@ from embedding_model import EmbeddingModel
 
 
 class GraphSearch:
-    """搜索管理器，处理所有与搜索相关的操作"""
+    """Search manager, handles all operations related to search"""
 
     def __init__(self, storage: GraphStorage, entity_manager: GraphEntity):
         """
-        初始化搜索管理器
+        Initialize search manager
 
         Args:
-            storage: 存储管理器实例
-            entity_manager: 实体管理器实例
+            storage: Store a GraphSearch instance
+            entity_manager: An instance of GraphEntity
         """
         self.storage = storage
         self.entity_manager = entity_manager
@@ -27,37 +27,37 @@ class GraphSearch:
         self, query: str, entity_id: Optional[str] = None, k: int = 3
     ) -> List[Tuple[Any, float]]:
         """
-        在向量存储中搜索
+        Search in vector store
 
         Args:
-            query: 搜索查询
-            entity_id: 可选的实体ID限制
-            k: 返回结果数量
+            query: Search query
+            entity_id: Optional entity ID to restrict search
+            k: Number of results to return
 
         Returns:
-            List[Tuple[Any, float]]: 搜索结果和相似度分数
+            List[Tuple[Any, float]]: Search results and similarity score
         """
         try:
-            # 如果指定了实体ID，在实体的向量存储中搜索
+            # If an entity ID is specified, search in the entity's vector store
             if entity_id:
                 main_id = self.entity_manager._get_main_id(entity_id)
                 if not main_id or main_id not in self.storage.vector_stores:
                     return []
                 vector_store = self.storage.vector_stores[main_id]
-            # 否则在全局向量存储中搜索
+            # Otherwise, search in the global vector store
             else:
                 if not self.storage.global_vector_store:
                     return []
                 vector_store = self.storage.global_vector_store
 
-            # 生成查询向量
+            # Generate query vector
             if not isinstance(query, str):
-                raise ValueError("查询必须是字符串")
+                raise ValueError("Query must be a string")
 
-            # 执行相似度搜索
+            # Excecute similarity search
             results = vector_store.similarity_search_with_score(query, k=k)
 
-            # 处理和过滤结果
+            # Process and filter results
             valid_results = []
             for doc, score in results:
                 if hasattr(doc, "page_content"):
@@ -66,30 +66,30 @@ class GraphSearch:
             return valid_results
 
         except Exception as e:
-            print(f"搜索向量存储时发生错误: {str(e)}")
+            print(f"[ERROR] An error occurs while searching a vector store: {str(e)}")
             return []
 
     def search_similar_entities(
         self, query_entity: str, top_n: int = 5, threshold: float = 0.8
     ) -> List[Tuple[str, float]]:
         """
-        搜索与给定实体相似的实体
+        Search for entities similar to the given entity
 
         Args:
-            query_entity: 查询实体
-            top_n: 返回结果数量
-            threshold: 相似度阈值
+            query_entity: Entity query
+            top_n: Number of results to return
+            threshold: Minimum similarity score to return a result
 
         Returns:
-            List[Tuple[str, float]]: (实体ID, 相似度分数)列表
+            List[Tuple[str, float]]: A list in the format of (Entity ID, similarity score)
         """
         try:
-            # 生成查询向量
+            # Generate query vector
             query_embedding = EmbeddingModel.get_instance().embed_query(query_entity)
             if not isinstance(query_embedding, np.ndarray):
                 query_embedding = np.array(query_embedding)
 
-            # 计算相似度
+            # Compute similarity
             similarities = []
             for entity_id, entity_embedding in self.storage.entity_embeddings.items():
                 if not isinstance(entity_embedding, np.ndarray):
@@ -100,23 +100,23 @@ class GraphSearch:
                 if similarity >= threshold:
                     similarities.append((entity_id, similarity))
 
-            # 按相似度排序
+            # Sort by similarity
             return sorted(similarities, key=lambda x: x[1], reverse=True)[:top_n]
 
         except Exception as e:
-            print(f"搜索相似实体时发生错误: {str(e)}")
+            print(f"[ERROR] An error occurs while searching for similar entities: {str(e)}")
             return []
 
     def search_similar_relationships(
         self, query: str, entity_id: str, k: int = 3
     ) -> List[Tuple[str, str, str, float]]:
         """
-        搜索与查询相似的实体关系
+        Search for relationships similar to the query
 
         Args:
-            query: 搜索查询
-            entity_id: 实体ID
-            k: 返回结果数量
+            query: Search query
+            entity_id: ID of an entity
+            k: the number of results to return
 
         Returns:
             List[Tuple[str, str, str, float]]: (实体1, 关系, 实体2, 分数)列表
@@ -133,10 +133,10 @@ class GraphSearch:
             def process_entity_relationships(
                 entity: str,
             ) -> List[Tuple[str, str, str, float]]:
-                """处理单个实体的关系"""
+                """Process relationships of an entity"""
                 relations = []
 
-                # 处理出边
+                # Process out edges
                 for successor in self.storage.graph.successors(entity):
                     edges_data = self.storage.graph.get_edge_data(entity, successor)
                     if edges_data:
@@ -155,7 +155,7 @@ class GraphSearch:
                                     (entity, edge_data["type"], successor, similarity)
                                 )
 
-                # 处理入边
+                # Process in edges
                 for predecessor in self.storage.graph.predecessors(entity):
                     edges_data = self.storage.graph.get_edge_data(predecessor, entity)
                     if edges_data:
@@ -176,16 +176,16 @@ class GraphSearch:
 
                 return relations
 
-            # 首先处理主实体的关系
+            # First process relationships of the main entity
             results.extend(process_entity_relationships(main_id))
             processed_entities.add(main_id)
 
-            # 如果结果不足k个，搜索相似实体的关系
+            # If no more than k results returned, search for relationships of similar entities
             while len(results) < k:
                 similar_entities = []
                 main_embedding = self.storage.entity_embeddings[main_id]
 
-                # 查找相似实体
+                # Search for similar entities
                 for entity, embedding in self.storage.entity_embeddings.items():
                     if entity not in processed_entities:
                         similarity = cosine_similarity([main_embedding], [embedding])[
@@ -197,7 +197,7 @@ class GraphSearch:
                 if not similar_entities:
                     break
 
-                # 处理相似实体
+                # Process similar entities
                 similar_entities.sort(key=lambda x: x[1], reverse=True)
                 found_new_relations = False
 
@@ -214,7 +214,7 @@ class GraphSearch:
                 if not found_new_relations:
                     break
 
-            # 按相似度排序并返回前k个结果
+            # Return the top k results sorted by similarity
             return sorted(results, key=lambda x: x[3], reverse=True)[:k]
 
         except Exception as e:
@@ -229,19 +229,19 @@ class GraphSearch:
         max_results: int = 3,
     ) -> List[Dict[str, Any]]:
         """
-        搜索两个实体之间的路径，优先返回较短的路径
+        Search for the paths between two entities, prioritizing shorter paths
 
         Args:
-            start_entity: 起始实体
-            end_entity: 目标实体
-            max_depth: 最大搜索深度
-            max_results: 最大返回结果数量，默认为3
+            start_entity: starting entity
+            end_entity: target entity
+            max_depth: maximum depth to search, default is 5
+            max_results: maximum number of results to return, default is 3
 
         Returns:
-            List[Dict[str, Any]]: 按路径长度排序的路径信息列表，每个字典包含：
-                - path: 路径上的实体列表
-                - relationships: 路径上的关系描述列表
-                - length: 路径长度
+            List[Dict[str, Any]]: List of paths information sorted by path length, each dictionary contains:
+                - path: list of entity IDs on the path
+                - relationships: relationship descriptions on the path
+                - length: length of the path
         """
         start_main_id = self.entity_manager._get_main_id(start_entity)
         end_main_id = self.entity_manager._get_main_id(end_entity)
@@ -249,30 +249,30 @@ class GraphSearch:
         if not start_main_id or not end_main_id or start_main_id == end_main_id:
             return []
 
-        # 结果列表
+        # list of results
         all_paths = []
 
-        # 用于BFS的队列：(当前节点, 当前路径, 关系列表, 当前深度)
+        # For BFS queue: (current node, current path, relationship list, current depth)
         queue = deque([(start_main_id, [start_main_id], [], 0)])
 
-        # 访问记录：(节点, 深度) -> 是否访问过
-        # 同一节点在不同深度可以重复访问，但需要优先访问较短路径
+        # Visiting history: (node, depth) -> whether it is visited
+        # The same node can be visited at different depths, but shorter paths should be visited first
         visited = set()
 
         while queue and len(all_paths) < max_results:
             current, current_path, relations, depth = queue.popleft()
 
-            # 如果超过最大深度，跳过
+            # Skip if exceeds max depth
             if depth > max_depth:
                 continue
 
-            # 当前状态标记
+            # Marker for current state
             state = (current, depth)
             if state in visited:
                 continue
             visited.add(state)
 
-            # 如果找到目标节点
+            # If the target node is found
             if current == end_main_id:
                 path_info = {
                     "path": current_path,
@@ -282,53 +282,53 @@ class GraphSearch:
                 all_paths.append(path_info)
                 continue
 
-            # 获取所有相邻节点
+            # Get all neighboring nodes
             neighbors = []
 
-            # 处理出边
+            # Process out edges
             for successor in self.storage.graph.successors(current):
                 edges_data = self.storage.graph.get_edge_data(current, successor)
                 for edge_data in edges_data.values():
                     neighbors.append(("out", successor, edge_data["type"]))
 
-            # 处理入边
+            # Process in edges
             for predecessor in self.storage.graph.predecessors(current):
                 edges_data = self.storage.graph.get_edge_data(predecessor, current)
                 for edge_data in edges_data.values():
                     neighbors.append(("in", predecessor, edge_data["type"]))
 
-            # 遍历所有相邻节点
+            # Traverse all neighboring nodes
             for direction, next_node, relation_type in neighbors:
-                # 检查下一个状态是否访问过
+                # Check if the next state has been visited
                 next_state = (next_node, depth + 1)
                 if next_state in visited:
                     continue
 
-                # 构建关系描述
+                # Construct relationship description
                 if direction == "out":
                     relation_desc = f"{current} -{relation_type}-> {next_node}"
                 else:
                     relation_desc = f"{next_node} -{relation_type}-> {current}"
 
-                # 构建新路径和关系列表
+                # Construct new path and relationship list
                 new_path = current_path + [next_node]
                 new_relations = relations + [relation_desc]
 
-                # 将新状态加入队列
+                # Add new state to the queue
                 queue.append((next_node, new_path, new_relations, depth + 1))
 
-        return all_paths  # 已经按长度排序，因为使用BFS
+        return all_paths  # Since we are using BFS, it's already ranked by length
 
     def tree_search(self, start_entity: str, max_depth: int = 3) -> nx.DiGraph:
         """
-        从起始实体开始进行树形搜索
+        Start tree search from the starting entity
 
         Args:
-            start_entity: 起始实体ID
-            max_depth: 最大搜索深度
+            start_entity: starting entity ID
+            max_depth: maximum depth to search
 
         Returns:
-            nx.DiGraph: 搜索树
+            nx.DiGraph: a directed graph representing the search tree
         """
         start_main_id = self.entity_manager._get_main_id(start_entity)
         if start_main_id:
@@ -339,36 +339,36 @@ class GraphSearch:
         self, query: str, top_n: int = 1, threshold: float = 0.5
     ) -> List[Tuple[List[str], str]]:
         """
-        根据查询搜索相关的社区,并返回社区包含的实体列表及社区简介
+        Based on the query, search for related communities and return the list of entities in the community and the community summary
 
         Args:
-            query: 用户的查询字符串
-            top_n: 返回的最大社区数量
-            threshold: 相似度阈值，分数需要高于此值才会返回结果（分数越高表示相似度越高）
+            query: user query string
+            top_n: maximum number of communities to return
+            threshold: similarity threshold, only return results if the score is higher than this value
 
         Returns:
-            List[Tuple[List[str], str]]: 每个元组包含(社区实体列表, 社区简介)。
-            当所有结果的相似度分数都低于阈值时，返回空列表。
+            List[Tuple[List[str], str]]: Each tuple contains (list of community entities, community summary).
+            Return an empty list when all results have similarity scores lower than the threshold.
         """
         if not self.storage.community_vector_store:
             return []
 
         try:
-            # 进行相似性搜索
+            # Perform similarity search
             results = self.storage.community_vector_store.similarity_search_with_score(
                 query, k=top_n
             )
             communities_data = []
 
             for doc, score in results:
-                # 只有当相似度分数高于阈值时才处理该结果
+                # Process the result only if the similarity score is higher than the threshold
                 if score > threshold:
-                    # 从metadata中获取社区ID
+                    # Extract community ID from metadata
                     community_id = doc.metadata["Community"].split("_")[
                         1
-                    ]  # 从 'Community_25' 提取 '25'
+                    ]  # Extract '25' from 'Community_25'
 
-                    # 从社区数据中获取相关信息
+                    # Extract relevant information from community data
                     community_data = self.storage.communities[community_id]
 
                     members = community_data["members"]

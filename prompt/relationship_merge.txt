@@ -1,5 +1,3 @@
-请直接返回合并后的关系描述，无需任何额外的解释说明。合并时请考虑关系的方向性（从起始实体指向目标实体）。
-
 Given the following entities and their two similar relationships, please merge these two relationships into a more accurate relationship description.
 Starting entity: {entity1}
 Target entity: {entity2}

@@ -26,5 +26,5 @@ class EmbeddingModel:
 
     @classmethod
     def cleanup(cls) -> None:
-        """清理嵌入模型（如果需要）"""
+        """Clean up the embedding model (if necessary)"""
         cls._instance = None

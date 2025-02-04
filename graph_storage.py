@@ -12,66 +12,66 @@ from embedding_model import EmbeddingModel
 
 
 class GraphStorage:
-    """图谱存储管理器，处理所有与存储相关的操作"""
+    """GraphStorage manager, handles all storage-related operations"""
 
     def __init__(self, base_path: str):
         """
-        初始化存储管理器
+        Initialize the GraphStorage manager
 
         Args:
-            base_path: 基础存储路径
+            base_path: Base path for the knowledge graph data
         """
-        # 基础路径
+        # Base path
         self.base_path = base_path
 
-        # 核心文件路径（直接在base_path下）
-        self.graph_file = os.path.join(base_path, "graph.json")  # 图结构文件
+        # Core file paths (directly under base_path)
+        self.graph_file = os.path.join(base_path, "graph.json")  # Graph file
         self.embeddings_file = os.path.join(
             base_path, "embeddings.json"
-        )  # 实体嵌入文件
-        self.global_doc_path = os.path.join(base_path, "global.md")  # 全局文档
+        )  # Entity embeddings file
+        self.global_doc_path = os.path.join(base_path, "global.md")  # Global document
 
-        # 子文件夹路径
-        self.entity_path = os.path.join(base_path, "entities")  # 实体文档文件夹
-        self.vector_path = os.path.join(base_path, "vectors")  # 向量存储文件夹
+        # Child file paths
+        self.entity_path = os.path.join(base_path, "entities")  # Entity file directory
+        self.vector_path = os.path.join(base_path, "vectors")  # Vector store directory
 
-        # 核心组件
+        # Core components
         self.graph = nx.MultiDiGraph()
 
-        # 实体管理
-        self.entity_embeddings: Dict[str, np.ndarray] = {}  # 实体嵌入
-        self.entity_aliases: Dict[str, Set[str]] = {}  # 实体别名
-        self.alias_to_main_id: Dict[str, str] = {}  # 别名到主实体的映射
+        # Entity management
+        self.entity_embeddings: Dict[str, np.ndarray] = {}  # Entity embeddings
+        self.entity_aliases: Dict[str, Set[str]] = {}  # Entity aliases
+        self.alias_to_main_id: Dict[str, str] = {}  # Maps from alias to main entity
 
-        # 向量存储
-        self.vector_stores: Dict[str, FAISS] = {}  # 实体向量库
-        self.global_vector_store: Optional[FAISS] = None  # 全局向量库
-        self.global_content: Set[str] = set()  # 全局文档内容
+        # Vector stores
+        self.vector_stores: Dict[str, FAISS] = {}  # Entity vector stores
+        self.global_vector_store: Optional[FAISS] = None  # Global vector store
+        self.global_content: Set[str] = set()  # Global document content
 
-        # 添加社区相关的存储路径
+        # Add storage paths for community-related data
         self.community_file = os.path.join(base_path, "communities.json")
         self.community_summary_path = os.path.join(base_path, "community_summaries.md")
         self.communities: Dict[int, Dict] = {}  # {community_id: community_data}
         self.community_vector_store: Optional[FAISS] = None
 
-        # 变更追踪：仅追踪实体修改
+        # Modified entities tracking: only tracks entity modifications
         self.modified_entities: Set[str] = set()
 
     def _init_storage(self) -> None:
-        """初始化存储结构"""
-        # 创建必要的目录和文件
+        """Initialize the storage structure"""
+        # Create necessary directories and files
         os.makedirs(self.base_path, exist_ok=True)
         os.makedirs(self.entity_path, exist_ok=True)
         os.makedirs(self.vector_path, exist_ok=True)
 
-        # 创建全局文档（如果不存在）
+        # Create global document if it doesn't exist
         if not os.path.exists(self.global_doc_path):
             with open(self.global_doc_path, "w", encoding="utf-8") as f:
                 pass
 
     def save(self) -> None:
-        """保存图谱数据"""
-        # 保存图结构和别名信息
+        """Save the knowledge graph data"""
+        # Save graph structure and aliases
         graph_data = {
             "graph": nx.node_link_data(self.graph, edges="links"),
             "aliases": {k: list(v) for k, v in self.entity_aliases.items()},
@@ -80,7 +80,7 @@ class GraphStorage:
         with open(self.graph_file, "w", encoding="utf-8") as f:
             json.dump(graph_data, f, ensure_ascii=False, indent=2)
 
-        # 保存实体嵌入
+        # Save entity embeddings
         embeddings_data = {}
         for k, v in self.entity_embeddings.items():
             if not isinstance(v, np.ndarray):
@@ -89,7 +89,7 @@ class GraphStorage:
         with open(self.embeddings_file, "w", encoding="utf-8") as f:
             json.dump(embeddings_data, f)
 
-        # 更新修改过的实体的向量库
+        # Update the vector stores of modified entities
         for entity_id in self.modified_entities:
             if entity_id in self.graph.nodes():
                 content = self.load_entity(entity_id)
@@ -97,17 +97,17 @@ class GraphStorage:
                     self._create_entity_vector_store(entity_id, content)
                     print(f"Update the vector store of entity '{entity_id}'")
 
-        # 更新全局向量库
+        # Update the global vector store
         if os.path.exists(self.global_doc_path):
             self._create_global_vector_store()
             print(f"Update global vector store")
 
-        # 清空变更追踪
+        # Clear the modified entities tracking
         self.modified_entities.clear()
 
     def load(self) -> None:
-        """加载图谱数据"""
-        # 加载图结构和别名
+        """Load the knowledge graph data"""
+        # Load graph structure and aliases
         if os.path.exists(self.graph_file):
             print(f"Existing knowledge graph detected at '{self.base_path}', loading...")
             with open(self.graph_file, "r", encoding="utf-8") as f:
@@ -116,12 +116,12 @@ class GraphStorage:
             self.entity_aliases = {k: set(v) for k, v in data["aliases"].items()}
             self.alias_to_main_id = data["alias_to_main_id"]
 
-            # 加载实体嵌入
+            # Loading entity embeddings
             if os.path.exists(self.embeddings_file):
                 print("Loading entity embedding...")
                 with open(self.embeddings_file, "r", encoding="utf-8") as f:
                     embeddings_data = json.load(f)
-                # 直接将列表转换为numpy数组，因为加载的数据已经是列表形式
+                # Convert list to numpy array directly, as the loaded data is already in list form
                 self.entity_embeddings = {
                     k: np.array(v) for k, v in embeddings_data.items()
                 }
@@ -129,20 +129,20 @@ class GraphStorage:
                 print("Didn't find entity embedding, now regenerating...")
                 self._regenerate_embeddings()
 
-            # 加载全局文档内容
+            # Load global document content
             if os.path.exists(self.global_doc_path):
                 with open(self.global_doc_path, "r", encoding="utf-8") as f:
                     self.global_content = set(f.read().split("\n\n"))
 
-            # 加载向量库
+            # Load vector stores
             self._load_vector_stores()
 
-            # 加载社区数据
+            # Load community data
             self._load_community_data()
 
     def _load_community_data(self) -> None:
-        """尝试加载社区相关数据"""
-        # 检查并加载社区JSON数据
+        """Try to load community-related data"""
+        # Check and load community JSON data
         if os.path.exists(self.community_file):
             print("Community data detected, loading...")
             try:
@@ -150,7 +150,7 @@ class GraphStorage:
                     self.communities = json.load(f)
                 print(f"{len(self.communities)} community data have been loaded")
 
-                # 加载社区向量存储
+                # Load community vector store
                 store_path = os.path.join(self.vector_path, "community_summaries")
                 if os.path.exists(store_path):
                     print("Loading community summary vector store...")
@@ -175,33 +175,33 @@ class GraphStorage:
 
     def save_entity(self, entity_id: str, content_units: List[Tuple[str, str]]) -> None:
         """
-        保存实体数据
+        Save entity data
 
         Args:
-            entity_id: 实体ID
-            content_units: [(title, content),...] 格式的内容单元列表
+            entity_id: Entity ID
+            content_units: Content unit list in the format of [(title, content),...]
         """
-        # 保存到markdown文件
+        # Save to markdown file
         file_path = os.path.join(self.entity_path, f"{entity_id}.md")
         with open(file_path, "w", encoding="utf-8") as f:
             for title, content in content_units:
                 f.write(f"# {title}\n\n{content}\n\n")
 
-        # 更新全局文档
+        # Update global document
         self._update_global_document(content_units)
 
-        # 标记实体为已修改
+        # Mark the entity as modified
         self.modified_entities.add(entity_id)
 
     def load_entity(self, entity_id: str) -> List[Tuple[str, str]]:
         """
-        加载实体数据
+        Load entity data
 
         Args:
-            entity_id: 实体ID
+            entity_id: Entity ID
 
         Returns:
-            List[Tuple[str, str]]: 内容单元列表
+            List[Tuple[str, str]]: Content unit list
         """
         file_path = os.path.join(self.entity_path, f"{entity_id}.md")
         if not os.path.exists(file_path):
@@ -225,44 +225,44 @@ class GraphStorage:
         return content_units
 
     def save_communities(self, communities_data: Dict[int, Dict]) -> None:
-        """保存社区数据到JSON"""
+        """Save community data to JSON"""
         self.communities = communities_data
         with open(self.community_file, "w", encoding="utf-8") as f:
             json.dump(communities_data, f, ensure_ascii=False, indent=2)
 
     def save_community_summaries(self, communities_data: Dict[int, Dict]) -> None:
-        """生成并保存社区摘要文档"""
-        # 生成markdown格式的社区摘要
+        """Generate and save community summary document"""
+        # Generated markdown format community summary
         doc_content = []
         for comm_id, comm_data in communities_data.items():
             doc_content.append(f"# Community_{comm_id}\n")
             doc_content.append(f"{comm_data['summary']}\n\n")
 
-        # 保存摘要文档
+        # Save the summary document
         with open(self.community_summary_path, "w", encoding="utf-8") as f:
             f.write("".join(doc_content))
 
-        # 创建向量存储
+        # Create vector store
         self._create_community_summary_store()
 
     def get_entity_count(self) -> int:
-        """获取实体数量"""
+        """Get the number of entities"""
         return len(self.graph.nodes())
 
     def get_relationship_count(self) -> int:
-        """获取关系数量"""
+        """Get the number of relationships"""
         return len(self.graph.edges())
 
     def get_alias_count(self) -> int:
-        """获取别名数量"""
+        """Get the number of aliases"""
         return sum(len(aliases) for aliases in self.entity_aliases.values())
 
     def get_store_count(self) -> int:
-        """获取向量存储数量"""
+        """Get the number of vector stores"""
         return len(self.vector_stores)
 
     def _regenerate_embeddings(self) -> None:
-        """重新生成所有实体的嵌入向量"""
+        """Regenerate entity embeddings"""
         self.entity_embeddings = {}
         for node in self.graph.nodes():
             embedding = EmbeddingModel.get_instance().embed_query(node)
@@ -271,8 +271,8 @@ class GraphStorage:
             self.entity_embeddings[node] = embedding
 
     def _load_vector_stores(self) -> None:
-        """加载向量存储"""
-        # 加载全局向量库
+        """Load vector stores"""
+        # Load global vector store
         global_store_path = os.path.join(self.vector_path, "global")
         if os.path.exists(global_store_path):
             self.global_vector_store = FAISS.load_local(
@@ -283,7 +283,7 @@ class GraphStorage:
         elif os.path.exists(self.global_doc_path):
             self._create_global_vector_store()
 
-        # 加载实体向量库
+        # Load entity vector stores
         for node in self.graph.nodes():
             store_path = os.path.join(self.vector_path, self._encode_filename(node))
             if os.path.exists(store_path):
@@ -306,31 +306,31 @@ class GraphStorage:
                     self._create_entity_vector_store(node, content)
 
     def _create_community_summary_store(self) -> None:
-        """为社区摘要创建向量存储"""
+        """Create a vector store for community summaries"""
         if not os.path.exists(self.community_summary_path):
             print("Creation failed, no community summary")
             return
 
         store_path = os.path.join(self.vector_path, "community_summaries")
 
-        # 使用标题分割文档
+        # Use headers to split the document
         headers_to_split_on = [("#", "Community")]
         splitter = MarkdownHeaderTextSplitter(headers_to_split_on=headers_to_split_on)
 
         with open(self.community_summary_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        # 分割文档
+        # Split the document
         docs = splitter.split_text(content)
 
-        # 创建向量存储
+        # Create vector store
         self.community_vector_store = FAISS.from_documents(
             documents=docs,
             embedding=EmbeddingModel.get_instance(),
             distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT,
         )
 
-        # 保存向量存储
+        # Save vector store
         self.community_vector_store.save_local(store_path)
         print("Community summary vector store creation complete")
 
@@ -338,45 +338,45 @@ class GraphStorage:
         self, entity_id: str, content_units: List[Tuple[str, str]]
     ) -> None:
         """
-        为实体创建向量存储
+        Create a vector store for the entity
 
         Args:
-            entity_id: 实体ID
-            content_units: 内容单元列表
+            entity_id: Entity ID
+            content_units: Content unit list
         """
         store_path = os.path.join(self.vector_path, self._encode_filename(entity_id))
 
-        # 构建markdown文本
+        # Construct markdown text
         markdown_text = ""
         for title, content in content_units:
             markdown_text += f"# {title}\n\n{content}\n\n"
 
-        # 分割文档
+        # Split the document
         headers_to_split_on = [("#", "Header 1")]
         md_splitter = MarkdownHeaderTextSplitter(
             headers_to_split_on=headers_to_split_on
         )
         docs = md_splitter.split_text(markdown_text)
 
-        # 创建向量存储
+        # Create vector store
         vector_store = FAISS.from_documents(
             documents=docs,
             embedding=EmbeddingModel.get_instance(),
             distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT,
         )
 
-        # 保存
+        # Save
         vector_store.save_local(store_path)
         self.vector_stores[entity_id] = vector_store
 
     def _create_global_vector_store(self) -> None:
-        """创建全局向量存储"""
+        """Create a global vector store"""
         if not os.path.exists(self.global_doc_path):
             return
 
         store_path = os.path.join(self.vector_path, "global")
 
-        # 读取和分割文档
+        # Load and split the document
         with open(self.global_doc_path, "r", encoding="utf-8") as f:
             content = f.read()
 
@@ -386,22 +386,22 @@ class GraphStorage:
         )
         docs = md_splitter.split_text(content)
 
-        # 创建向量存储
+        # Create vector store
         self.global_vector_store = FAISS.from_documents(
             documents=docs,
             embedding=EmbeddingModel.get_instance(),
             distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT,
         )
 
-        # 保存
+        # Save
         self.global_vector_store.save_local(store_path)
 
     def _update_global_document(self, content_units: List[Tuple[str, str]]) -> None:
         """
-        更新全局文档
+        Update the global document
 
         Args:
-            content_units: 新的内容单元列表
+            content_units: New content units
         """
         new_content = set()
         for title, content in content_units:
@@ -423,7 +423,7 @@ class GraphStorage:
 
     @staticmethod
     def _decode_filename(encoded_filename: str) -> str:
-        """文件名解码"""
+        """Decode the encoded filename"""
         try:
             decoded_bytes = base64.urlsafe_b64decode(encoded_filename.encode("utf-8"))
             return decoded_bytes.decode("utf-8")
@@ -433,19 +433,19 @@ class GraphStorage:
 
     def cleanup(self) -> None:
         """
-        清理资源
-        主要清理内存中的缓存数据
+        Cleanup resources
+        Mainly clean up cached data in memory
         """
         try:
-            # 保存当前状态
+            # Save current state
             self.save()
 
-            # 清空内存中的向量存储引用
+            # Clean up vector store references in memory
             self.vector_stores.clear()
             self.global_vector_store = None
             self.community_vector_store = None
 
-            # 清空其他内存缓存
+            # Clean up other memory caches
             self.entity_embeddings.clear()
             self.global_content.clear()
             self.modified_entities.clear()
@@ -456,38 +456,38 @@ class GraphStorage:
 
     def remove_entity(self, entity_id: str) -> None:
         """
-        删除实体及其相关数据
+        Delete entity and related data
 
         Args:
-            entity_id: 实体ID
+            entity_id: Entity ID
         """
         try:
-            # 从修改追踪中移除
+            # Remove from the modified tracking
             self.modified_entities.discard(entity_id)
 
-            # 删除实体文档
+            # Remove entity document
             file_path = os.path.join(self.entity_path, f"{entity_id}.md")
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-            # 删除向量存储
+            # Remove vector store
             store_path = os.path.join(
                 self.vector_path, self._encode_filename(entity_id)
             )
             if os.path.exists(store_path):
-                shutil.rmtree(store_path)  # 直接删除向量库文件夹
+                shutil.rmtree(store_path)  # Directly remove the vector store directory
                 if entity_id in self.vector_stores:
-                    del self.vector_stores[entity_id]  # 从内存中移除引用
+                    del self.vector_stores[entity_id]  # Remove reference from memory
 
-            # 删除实体嵌入
+            # Remove entity embeddings
             if entity_id in self.entity_embeddings:
                 del self.entity_embeddings[entity_id]
 
-            # 从图中移除节点（这会自动移除相关的边）
+            # Remove the node from the graph (this will automatically remove related edges)
             if entity_id in self.graph:
                 self.graph.remove_node(entity_id)
 
-            # 更新别名
+            # Update aliases
             if entity_id in self.entity_aliases:
                 aliases = self.entity_aliases[entity_id]
                 for alias in aliases:
@@ -501,9 +501,9 @@ class GraphStorage:
             print(f"[ERROR] Error while deleting entity '{entity_id}': {str(e)}")
 
     def __enter__(self):
-        """上下文管理器入口"""
+        """Entrance to the context manager"""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """上下文管理器出口，确保资源被正确释放"""
+        """Exit to the context manager, making sure resources are released properly"""
         self.cleanup()
