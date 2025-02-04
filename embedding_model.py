@@ -7,7 +7,7 @@ class EmbeddingModel:
 
     @classmethod
     def get_instance(cls) -> HuggingFaceBgeEmbeddings:
-        """获取嵌入模型单例"""
+        """Get embedding model instance"""
         if cls._instance is None:
             print("Initializing embedding model...")
             # cls._instance = HuggingFaceBgeEmbeddings(

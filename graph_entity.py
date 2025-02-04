@@ -15,7 +15,7 @@ COMMUNITY_SUMMARY_PROMPT = "prompt/community_summary.txt"
 
 
 class GraphEntity:
-    """Graph Entity manager, handles all operations related to entities and relationships"""
+    """Class of GraphEntity, handles all operations related to entities and relationships"""
 
     def __init__(self, storage: GraphStorage, llm_client: Client):
         """

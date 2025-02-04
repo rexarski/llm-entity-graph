@@ -10,7 +10,7 @@ from embedding_model import EmbeddingModel
 
 
 class GraphSearch:
-    """Search manager, handles all operations related to search"""
+    """Class of GraphSearch, handles all operations related to search"""
 
     def __init__(self, storage: GraphStorage, entity_manager: GraphEntity):
         """

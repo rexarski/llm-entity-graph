@@ -12,7 +12,7 @@ from embedding_model import EmbeddingModel
 
 
 class GraphStorage:
-    """GraphStorage manager, handles all storage-related operations"""
+    """Class of GraphStorage, handles all storage-related operations"""
 
     def __init__(self, base_path: str):
         """
@@ -416,7 +416,7 @@ class GraphStorage:
 
     @staticmethod
     def _encode_filename(filename: str) -> str:
-        """文件名编码"""
+        """Encode the filename"""
         filename_bytes = filename.encode("utf-8")
         encoded_bytes = base64.urlsafe_b64encode(filename_bytes)
         return encoded_bytes.decode("utf-8")
@@ -505,5 +505,5 @@ class GraphStorage:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Exit to the context manager, making sure resources are released properly"""
+        """Exit from the context manager, making sure resources are released properly"""
         self.cleanup()

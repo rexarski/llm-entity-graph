@@ -22,7 +22,7 @@ class VisualizationConfig:
 
 
 class GraphVisualization:
-    """GraphVisualization manager"""
+    """Class of GraphVisualization"""
 
     def __init__(self, storage: GraphStorage):
         """Initialize the visualization manager"""
