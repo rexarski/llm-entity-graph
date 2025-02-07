@@ -119,7 +119,7 @@ class GraphSearch:
             k: the number of results to return
 
         Returns:
-            List[Tuple[str, str, str, float]]: (实体1, 关系, 实体2, 分数)列表
+            List[Tuple[str, str, str, float]]: List of tuples (Entity1, Relationship, Entity2, Score)
         """
         main_id = self.entity_manager._get_main_id(entity_id)
         if not main_id:

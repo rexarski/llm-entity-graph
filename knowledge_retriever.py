@@ -388,10 +388,10 @@ class KnowledgeRetriever:
             community_results = self.kg.search_communities(query, top_n=1)
             if community_results:
                 members, summary = community_results[0]
-                result_parts.append("【请参考社区观点】")
-                result_parts.append("相关社区成员:")
+                result_parts.append("[Please refer to community opinions]")
+                result_parts.append("Related community members:")
                 result_parts.append(f"- {', '.join(members)}")
-                result_parts.append("\n社区简介:")
+                result_parts.append("\nCommunity summary:")
                 result_parts.append(summary)
 
             # 2. Global document retrieval

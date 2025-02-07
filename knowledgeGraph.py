@@ -19,7 +19,7 @@ class KnowledgeGraph:
         Initialize the knowledge graph
 
         Args:
-            base_path: 知识图谱数据的基础路径
+            base_path: base path of the knowledge graph data
         """
         # Initialize the LLM client
         # self.llm_client = OpenAI(api_key=API_KEY, base_url=API_BASE_URL)

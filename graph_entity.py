@@ -483,7 +483,7 @@ class GraphEntity:
                             print(f"Add alias: {alias} -> {main_id}")
                 else:
                     # Add new node
-                    print(f"添加新节点: {node}")
+                    print(f"Add a new node: {node}")
                     new_id = self.add_entity(node, node_info["content"])
                     # Add aliases
                     for alias in node_info["aliases"]:
